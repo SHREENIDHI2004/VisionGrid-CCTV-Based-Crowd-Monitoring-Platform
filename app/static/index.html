@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Person Detection Studio — Image · CCTV · Video</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="main.js" defer></script>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Top bar ───────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="logo-group">
+      <span class="logo-icon">👁️</span>
+      <span class="logo-text">Person<span class="accent">Detect</span></span>
+    </div>
+
+    <!-- Tab switcher -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="image">📷 Image</button>
+      <button class="tab-btn"        data-tab="cctv" >📡 CCTV Live</button>
+      <button class="tab-btn"        data-tab="video">🎬 Video File</button>
+    </nav>
+
+    <div class="status-pill">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-txt">Ready</span>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB 1 — IMAGE
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="tab-image" class="tab-content active">
+    <div class="img-layout">
+
+      <!-- Drop zone -->
+      <div class="glass-panel drop-card">
+        <div class="panel-hdr">
+          <span class="panel-title">Upload Image</span>
+          <div class="conf-row">
+            <label>Conf <input id="img-conf" class="mini-input" type="number" value="0.25" min="0.05" max="1" step="0.05"></label>
+            <label>IoU  <input id="img-iou"  class="mini-input" type="number" value="0.45" min="0.05" max="1" step="0.05"></label>
+          </div>
+        </div>
+        <div class="drop-zone" id="img-drop-zone">
+          <span class="drop-icon">📤</span>
+          <p>Drag &amp; drop an image or</p>
+          <span class="browse-btn" id="img-browse">Browse File</span>
+          <input type="file" id="img-file-input" accept="image/*" hidden>
+          <p class="hint">JPG · PNG · JPEG</p>
+        </div>
+      </div>
+
+      <!-- Side-by-side previews -->
+      <div class="glass-panel preview-card">
+        <div class="panel-hdr"><span class="panel-title">Original</span></div>
+        <div class="img-box"><img id="img-original" src="" alt=""></div>
+      </div>
+
+      <div class="glass-panel preview-card">
+        <div class="panel-hdr">
+          <span class="panel-title">Detection Result</span>
+          <button id="img-download" class="btn btn-cyan" disabled>⬇ Download</button>
+        </div>
+        <div class="img-box" style="position:relative;">
+          <img id="img-result" src="" alt="">
+          <div id="img-overlay" class="loading-overlay hidden">
+            <div class="spinner"></div><p>Running inference…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="glass-panel stats-card">
+        <div class="panel-hdr"><span class="panel-title">Detection Summary</span></div>
+        <div class="img-stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Persons</div>
+            <div class="stat-val accent" id="img-stat-total">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Conf</div>
+            <div class="stat-val cyan" id="img-stat-avg">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Highest</div>
+            <div class="stat-val green" id="img-stat-max">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Lowest</div>
+            <div class="stat-val warn" id="img-stat-min">—</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="det-table">
+            <thead><tr><th>#</th><th>Confidence</th><th>Box [x1,y1,x2,y2]</th></tr></thead>
+            <tbody id="img-table-body">
+              <tr><td colspan="3" class="empty-td">Upload an image to see detections</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB 2 — CCTV
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="tab-cctv" class="tab-content">
+    <div class="cctv-layout">
+
+      <!-- Controls bar -->
+      <div class="cctv-controls glass-panel">
+        <input id="cctv-src"  class="src-input" type="text"   placeholder="Camera index (0,1) or rtsp://…" value="0">
+        <input id="cctv-conf" class="mini-input" type="number" value="0.35" min="0.05" max="1" step="0.05" title="Confidence">
+        <button id="cctv-start"    class="btn btn-green">▶ Start</button>
+        <button id="cctv-stop"     class="btn btn-red"   disabled>■ Stop</button>
+        <button id="cctv-reset-hm" class="btn btn-ghost">🔥 Reset Heatmap</button>
+        <div class="view-toggle">
+          <button id="cctv-live" class="tog active">Detection</button>
+          <button id="cctv-heat" class="tog">Heatmap</button>
+        </div>
+      </div>
+
+      <!-- Video + analytics -->
+      <div class="cctv-body">
+        <div class="glass-panel feed-card">
+          <div class="feed-wrap">
+            <img id="cctv-main-feed" class="feed-img"        src="" alt="Live feed">
+            <img id="cctv-heat-feed" class="feed-img hidden" src="" alt="Heatmap feed">
+            <div id="cctv-placeholder" class="feed-placeholder">
+              <span class="ph-icon">📡</span>
+              <p>Press <strong>▶ Start</strong> to stream</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="cctv-analytics">
+          <!-- Stat cards -->
+          <div class="cctv-stats">
+            <div class="stat-card"><div class="stat-label">Persons</div><div class="stat-val accent" id="cctv-total">0</div></div>
+            <div class="stat-card"><div class="stat-label">Suspicious</div><div class="stat-val danger" id="cctv-susp">0</div></div>
+            <div class="stat-card"><div class="stat-label">Density</div><div class="stat-val warn" id="cctv-density">CLEAR</div></div>
+          </div>
+
+          <!-- Density grid -->
+          <div class="glass-panel section-panel">
+            <div class="panel-hdr"><span class="panel-title">Crowd Density Grid</span></div>
+            <div class="density-grid" id="density-grid"></div>
+            <div class="density-legend">
+              <span class="legend-dot green"></span>Low
+              <span class="legend-dot orange"></span>Med
+              <span class="legend-dot red"></span>High
+            </div>
+          </div>
+
+          <!-- Suspicious -->
+          <div class="glass-panel section-panel">
+            <div class="panel-hdr"><span class="panel-title">Suspicious Activity</span></div>
+            <div id="susp-list" class="susp-list">
+              <p class="empty-msg">All clear</p>
+            </div>
+          </div>
+
+          <!-- Alert log -->
+          <div class="glass-panel section-panel flex-grow">
+            <div class="panel-hdr">
+              <span class="panel-title">Alert Log</span>
+              <button id="cctv-clear-log" class="btn btn-ghost tiny">Clear</button>
+            </div>
+            <div id="cctv-alert-log" class="alert-log"></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB 3 — VIDEO FILE
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="tab-video" class="tab-content">
+    <div class="vid-layout">
+
+      <!-- Upload + controls -->
+      <div class="glass-panel vid-upload-card">
+        <div class="panel-hdr">
+          <span class="panel-title">Upload Video File</span>
+          <div class="conf-row">
+            <label>Conf <input id="vid-conf" class="mini-input" type="number" value="0.35" min="0.05" max="1" step="0.05"></label>
+          </div>
+        </div>
+        <div class="drop-zone" id="vid-drop-zone">
+          <span class="drop-icon">🎬</span>
+          <p>Drag &amp; drop a video or</p>
+          <span class="browse-btn" id="vid-browse">Browse File</span>
+          <input type="file" id="vid-file-input" accept="video/*" hidden>
+          <p class="hint">MP4 · MOV · AVI</p>
+        </div>
+        <div id="vid-filename" class="vid-filename hidden"></div>
+        <button id="vid-process" class="btn btn-green full-btn" disabled>
+          ▶ Process Video
+        </button>
+      </div>
+
+      <!-- Progress + result -->
+      <div class="glass-panel vid-result-card">
+        <div class="panel-hdr">
+          <span class="panel-title">Processing Status</span>
+          <button id="vid-download" class="btn btn-cyan" disabled>⬇ Download Result</button>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-label">
+            <span id="vid-status-txt">Waiting for video…</span>
+            <span id="vid-pct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progress-bar" class="progress-bar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="vid-stats-grid">
+          <div class="stat-card"><div class="stat-label">Status</div>
+            <div class="stat-val" id="vid-state-label" style="font-size:1rem;margin-top:6px;">—</div></div>
+          <div class="stat-card"><div class="stat-label">Progress</div>
+            <div class="stat-val accent" id="vid-progress-val">0%</div></div>
+        </div>
+
+        <p id="vid-hint" class="vid-hint">
+          Processing runs frame-by-frame with person tracking and analytics overlays. 
+          Download the annotated video when done.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /shell -->
+</body>
+</html>
